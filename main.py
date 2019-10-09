@@ -3,7 +3,7 @@
 import numpy as np
 import cv2
 
-FILE = 'map.jpg'
+FILE = 'maps/mapa_irdi_2019_10_08.jpg'
 CELL_SIZE = 10
 
 
