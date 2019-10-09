@@ -1,13 +1,71 @@
 #!/usr/bin/env python
 
+from enum import Enum
+from math import pow
+
 import numpy as np
 import cv2
 
-FILE = 'maps/mapa_irdi_2019_10_08.jpg'
-CELL_SIZE = 200
+
+FILE = 'maps/map1.png'
+CELL_SIZE = 10
 
 
-def calculateCells(img):
+class Risk(Enum):
+    NONE = 0
+    VERY_LOW = 1
+    LOW = 2
+    MEDIUM = 3
+    HIGH = 4
+    VERY_HIGH = 5
+
+    def __lt__(self, other):
+        return self.value < other.value
+
+
+# Colors in OpenCV are BGR
+COLOR_TO_RISK = {
+    (254, 241, 197, 255): Risk.NONE,
+    (216, 216, 216, 255): Risk.NONE,
+    (255, 0, 0, 255): Risk.VERY_LOW,
+    (0, 255, 0, 255): Risk.LOW,
+    (0, 255, 255, 255): Risk.MEDIUM,
+    (0, 127, 255, 255): Risk.HIGH,
+    (0, 0, 255, 255): Risk.VERY_HIGH,
+}
+
+RISK_TO_COLOR = {
+    Risk.NONE: (255, 255, 255, 255),
+    Risk.VERY_LOW: (255, 0, 0, 255),
+    Risk.LOW: (0, 255, 0, 255),
+    Risk.MEDIUM: (0, 255, 255, 255),
+    Risk.HIGH: (0, 127, 255, 255),
+    Risk.VERY_HIGH: (0, 0, 255, 255),
+}
+
+
+def readImageWithAlpha(file_):
+    img = cv2.imread(file_, cv2.IMREAD_UNCHANGED)
+    b_channel, g_channel, r_channel = cv2.split(img)
+    alpha_channel = np.ones(b_channel.shape, dtype=b_channel.dtype) * 255
+    return cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
+
+
+def createGrid(img):
+    height, width, _ = img.shape
+    grid = np.zeros((height, width, 4), dtype=np.uint8)
+    i = 0
+    while i < height:
+        cv2.line(img, (0, i), (width, i), (0, 0, 0, 255), 1)
+        i += CELL_SIZE
+    i = 0
+    while i < width:
+        cv2.line(img, (i, 0), (i, height), (0, 0, 0, 255), 1)
+        i += CELL_SIZE
+    return grid
+
+
+def averageCells(img):
     height, width, channels = img.shape
     rows = height // CELL_SIZE
     columns = width // CELL_SIZE
@@ -22,51 +80,47 @@ def calculateCells(img):
     return cells
 
 
-def calculateMaxNeighbours(cells):
+def createAverageRasterizedImage(img, cells):
     rows, columns, channels = cells.shape
-    max_neighbours = np.zeros((rows, columns, 2), dtype=np.int8)
-    for i in range(1, rows - 1):
-        for j in range(1, columns - 1):
-            max_neighbour = np.array((0, 0, 255))
-            max_ii, max_jj = 0, 0
-            for ii in range(-1, 1):
-                for jj in range(-1, 1):
-                    cell = cells[i + ii][ j + jj]
-                    if __greaterThan(cell, max_neighbour):
-                        max_neighbour = cell
-                        max_ii, max_jj = ii, jj
-            print(max_neighbour)
-            max_neighbours[i][j] = (max_ii, max_jj)
-    return max_neighbours
-
-
-def __greaterThan(color1, color2):
-    """
-    Blue:   (0,     0, 255)
-    Green:  (0,   255,   0)
-    Yellow: (255, 255,   0)
-    Orange: (255, 127,   0)
-    Red :   (255,   0,   0)
-    """
-    if color1[0] > color2[0]:
-        return True
-    if color1[0] == color2[0]:
-        if color1[1] < color2[1]:
-            return True
-        if color1[1] == color2[1] and color1[2] < color2[2]:
-            return True
-    return False
-
-
-def createRasterizedImage(img, cells):
-    rows, columns, _ = cells.shape
-    height, width = rows * CELL_SIZE, columns * CELL_SIZE
-    result = np.zeros((height, width, 3), dtype=np.uint8)
+    height = columns * CELL_SIZE
+    width = rows * CELL_SIZE
+    result = np.zeros((height, width, channels), dtype=np.uint8)
     for i in range(rows):
         for j in range(columns):
             for ii in range(CELL_SIZE):
                 for jj in range(CELL_SIZE):
-                    result[i*CELL_SIZE + ii][j*CELL_SIZE + jj] = cells[(i, j)]
+                    result[i*CELL_SIZE + ii][j*CELL_SIZE + jj] = cells[i][j]
+    return result
+
+
+def classifyCells(cells):
+    rows, columns, channels = cells.shape
+    classified_cells = np.zeros((rows, columns), dtype=Risk)
+    for i in range(1, rows - 1):
+        for j in range(1, columns - 1):
+            classified_cells[i][j] = __getRisk(cells[i][j])
+    return classified_cells
+
+
+def __getRisk(cell):
+    distances_and_risks = []
+    for color, risk in COLOR_TO_RISK.items():
+        distance = sum(pow(color[i] - cell[i], 2) for i in range(3))
+        distances_and_risks.append((distance, risk))
+    distances_and_risks.sort()
+    return distances_and_risks[0][1]
+
+
+def createRiskRasterizedImage(img, cells):
+    rows, columns = cells.shape
+    height, width = rows * CELL_SIZE, columns * CELL_SIZE
+    result = np.zeros((height, width, 4), dtype=np.uint8)
+    for i in range(rows):
+        for j in range(columns):
+            for ii in range(CELL_SIZE):
+                for jj in range(CELL_SIZE):
+                    color = RISK_TO_COLOR[Risk(cells[i][j])]
+                    result[i*CELL_SIZE + ii][j*CELL_SIZE + jj] = color
     return result
 
 
@@ -82,20 +136,40 @@ def sliceImage(img):
         i += CELL_SIZE
 
 
-def main():
-    img = cv2.imread(FILE, cv2.IMREAD_UNCHANGED)
-    print('Calculating cells ...')
-    cells = calculateCells(img)
-    print(cells)
-    print('Calculating max neighbours ...')
-    max_neighbours = calculateMaxNeighbours(cells)
-    print(max_neighbours)
-    print('Rasterizing ...')
-    img = createRasterizedImage(img, cells)
-    print('Slicing ...')
-    sliceImage(img)
+def showStep(img):
     cv2.imshow('image', img)
     cv2.waitKey(0)
+
+
+def main():
+    print('Reading {} ...'.format(FILE))
+    img = readImageWithAlpha(FILE)
+    showStep(img)
+
+    print('Adding grid ...')
+    grid = createGrid(img)
+    showStep(cv2.add(img, grid))
+
+    print('Averaging cells ...')
+    cells = averageCells(img)
+    img = createAverageRasterizedImage(img, cells)
+    grid = createGrid(img)
+    showStep(grid)
+    showStep(cv2.add(img, grid))
+
+    print('Classifying cells ...')
+    cells = classifyCells(cells)
+    img = createRiskRasterizedImage(img, cells)
+    #grid = createGrid(img)
+    showStep(grid)
+    showStep(cv2.add(img, grid))
+
+    print('Eroding cells ...')
+
+    print('Slicing ...')
+    sliceImage(img)
+    showStep(img)
+
     cv2.destroyAllWindows()
 
 
