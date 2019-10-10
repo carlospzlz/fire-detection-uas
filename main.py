@@ -51,18 +51,25 @@ def readImageWithAlpha(file_):
     return cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
 
 
-def createGrid(img):
-    height, width, _ = img.shape
+def createGrid(height, width):
     grid = np.zeros((height, width, 4), dtype=np.uint8)
-    i = 0
-    while i < height:
-        cv2.line(img, (0, i), (width, i), (0, 0, 0, 255), 1)
-        i += CELL_SIZE
-    i = 0
-    while i < width:
-        cv2.line(img, (i, 0), (i, height), (0, 0, 0, 255), 1)
-        i += CELL_SIZE
+    for i in range(0, height, CELL_SIZE):
+        cv2.line(grid, (0, i), (width, i), (0, 0, 0, 255), 1)
+    for i in range(0, width, CELL_SIZE):
+        cv2.line(grid, (i, 0), (i, height), (0, 0, 0, 255), 1)
     return grid
+
+
+def blend(img1, img2):
+    b1, g1, r1, _ = cv2.split(img1)
+    b2, g2, r2, alpha = cv2.split(img2)
+    alpha = alpha.astype(float) / 255
+    b = b2 * alpha + b1 * (1 - alpha)
+    g = g2 * alpha + g1 * (1 - alpha)
+    r = r2 * alpha + r1 * (1 - alpha)
+    alpha = np.ones(alpha.shape, dtype=np.uint8) * 255
+    return cv2.merge(
+        (b.astype(np.uint8), g.astype(np.uint8), r.astype(np.uint8), alpha))
 
 
 def averageCells(img):
@@ -147,28 +154,24 @@ def main():
     showStep(img)
 
     print('Adding grid ...')
-    grid = createGrid(img)
-    showStep(cv2.add(img, grid))
+    height, width, _ = img.shape
+    grid = createGrid(height, width)
+    showStep(blend(img, grid))
 
     print('Averaging cells ...')
     cells = averageCells(img)
     img = createAverageRasterizedImage(img, cells)
-    grid = createGrid(img)
-    showStep(grid)
-    showStep(cv2.add(img, grid))
+    height, width, _ = img.shape
+    grid = createGrid(height, width)
+    showStep(blend(img, grid))
 
     print('Classifying cells ...')
     cells = classifyCells(cells)
     img = createRiskRasterizedImage(img, cells)
-    #grid = createGrid(img)
-    showStep(grid)
-    showStep(cv2.add(img, grid))
+    showStep(blend(img, grid))
 
     print('Eroding cells ...')
-
-    print('Slicing ...')
-    sliceImage(img)
-    showStep(img)
+    #cells = 
 
     cv2.destroyAllWindows()
 
