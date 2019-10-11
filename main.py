@@ -8,10 +8,6 @@ import numpy as np
 import cv2
 
 
-FILE = 'maps/irdi_map_2019_10_08.jpg'
-CELL_SIZE = 10
-
-
 class Risk(Enum):
     NONE = 0
     VERY_LOW = 1
@@ -63,6 +59,11 @@ def read_image_with_alpha(file_):
     return cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
 
 
+def show_step(img):
+    cv2.imshow('image', img)
+    cv2.waitKey(0)
+
+
 def create_grid(height, width, cell_size):
     grid = np.zeros((height, width, 4), dtype=np.uint8)
     for i in range(0, height, cell_size):
@@ -99,7 +100,7 @@ def average_cells(img, cell_size):
     return cells
 
 
-def create_average_rasterized_image(img, cells, cell_size):
+def create_rasterized_image(cells, cell_size):
     rows, columns, channels = cells.shape
     height = rows * cell_size
     width = columns * cell_size
@@ -115,8 +116,9 @@ def create_average_rasterized_image(img, cells, cell_size):
 def classify_cells(cells):
     rows, columns, channels = cells.shape
     classified_cells = np.zeros((rows, columns), dtype=Risk)
-    for i in range(1, rows - 1):
-        for j in range(1, columns - 1):
+    for i in range(rows):
+        for j in range(columns):
+            limits = rows, columns
             classified_cells[i][j] = __getRisk(cells[i][j])
     return classified_cells
 
@@ -143,21 +145,33 @@ def create_risk_rasterized_image(img, cells, cell_size):
     return result
 
 
-def sliceImage(img, cell_size):
-    height, width, channels = img.shape
-    i = 0
-    while i < height:
-        cv2.line(img, (0, i), (width, i), (0, 0, 0), 1)
-        i += cell_size
-    i = 0
-    while i < width:
-        cv2.line(img, (i, 0), (i, height), (0, 0, 0), 1)
-        i += cell_size
+def risk_cells_to_color_cells(cells):
+    rows, columns = cells.shape
+    risk_color_cells = np.zeros((rows, columns, 4), dtype=np.uint8)
+    for i in range(rows):
+        for j in range(columns):
+            risk_color_cells[i][j] = RISK_TO_COLOR[Risk(cells[i][j])]
+    return risk_color_cells
 
 
-def show_step(img):
-    cv2.imshow('image', img)
-    cv2.waitKey(0)
+def smooth(cells, factor):
+    """
+    Smooth cells based on the median.
+    """
+    rows, columns = cells.shape
+    smoothed_cells = np.zeros((rows, columns), dtype=cells.dtype)
+    for i in range(rows):
+        for j in range(columns):
+            region_cells = []
+            for ii in range(-factor, factor + 1):
+                for jj in range(-factor, factor + 1):
+                    row = (i + ii) % rows
+                    column = (j + jj) % columns
+                    region_cells.append(cells[row][column])
+            region_cells.sort()
+            median_index = len(region_cells) // 2
+            smoothed_cells[i][j] = region_cells[median_index]
+    return smoothed_cells
 
 
 def main():
@@ -173,19 +187,31 @@ def main():
     show_step(blend(img, grid))
 
     print('Averaging cells ...')
-    cells = average_cells(img, args.cell_size)
-    img = create_average_rasterized_image(img, cells, args.cell_size)
+    avg_cells = average_cells(img, args.cell_size)
+    img = create_rasterized_image(avg_cells, args.cell_size)
     height, width, _ = img.shape
     grid = create_grid(height, width, args.cell_size)
     show_step(blend(img, grid))
 
     print('Classifying cells ...')
-    cells = classify_cells(cells)
-    img = create_risk_rasterized_image(img, cells, args.cell_size)
+    risk_cells = classify_cells(avg_cells)
+    color_cells = risk_cells_to_color_cells(risk_cells)
+    img = create_rasterized_image(color_cells, args.cell_size)
     show_step(blend(img, grid))
 
-    print('Eroding cells ...')
-    #cells = 
+    print('Smoothing cells ...')
+    for i in range(50):
+        print(' - iteration ', i)
+        smoothed_risk_cells = smooth(risk_cells, 1)
+        color_cells = risk_cells_to_color_cells(smoothed_risk_cells)
+        img = create_rasterized_image(color_cells, args.cell_size)
+        cv2.imshow('image', blend(img, grid))
+        cv2.waitKey(1)
+        if np.array_equal(smoothed_risk_cells, risk_cells):
+            break
+        risk_cells = smoothed_risk_cells
+
+    show_step(blend(img, grid))
 
     cv2.destroyAllWindows()
 
