@@ -59,9 +59,9 @@ def read_image_with_alpha(file_):
     return cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
 
 
-def show_step(img):
+def show_step(img, delay):
     cv2.imshow('image', img)
-    cv2.waitKey(0)
+    cv2.waitKey(delay)
 
 
 def create_grid(height, width, cell_size):
@@ -211,7 +211,7 @@ def create_forces_image(forces, cell_size):
     for i in range(rows):
         for j in range(columns):
             force = forces[i][j]
-            if cv2.countNonZero(force):
+            if np.count_nonzero(force):
                 force = force * 1/2 * cell_size
                 center_x = j * cell_size + cell_size / 2
                 center_y = i * cell_size + cell_size / 2
@@ -220,8 +220,51 @@ def create_forces_image(forces, cell_size):
                 point2 = center + 1/2 * force
                 point1 = tuple(point1.astype(int))
                 point2 = tuple(point2.astype(int))
-                cv2.arrowedLine(img, point1, point2, (0, 0, 0, 255), 1)
+                cv2.arrowedLine(
+                    img, point1, point2, (0, 0, 0, 255), 1,
+                    line_type=cv2.LINE_8, tipLength=.25)
     return img
+
+
+def grow_field_of_forces(forces, min_influence=3):
+    grown_forces = np.zeros(forces.shape)
+    rows, columns, _ = forces.shape
+    row_steps = (-1, -1, -1,  0, 0,  1, 1, 1);
+    col_steps = (-1,  0,  1, -1, 1, -1, 0, 1);
+    for i in range(rows):
+        for j in range(columns):
+            force = forces[i][j]
+            if np.count_nonzero(force):
+                grown_forces[i][j] = force
+            else:
+                neighbours = []
+                for ii, jj in zip(row_steps, col_steps):
+                    row = (i + ii) % rows
+                    column = (j + jj) % columns
+                    neighbour_force = forces[row][column]
+                    if np.count_nonzero(neighbour_force):
+                        neighbours.append(neighbour_force)
+                if len(neighbours) >= min_influence:
+                    grown_forces[i][j] = __getMeanForce(neighbours)
+    return grown_forces
+
+
+def __getMeanForce(forces):
+    mean_force = np.zeros(2)
+    for force in forces:
+        mean_force += force
+    if np.count_nonzero(mean_force):
+        return mean_force / np.linalg.norm(mean_force)
+    return np.zeros(2)
+
+
+def all_forces_are_non_zero(forces):
+    rows, columns, _ = forces.shape
+    for i in range(rows):
+        for j in range(columns):
+            if not np.count_nonzero(forces[i][j]):
+                return False
+    return True
 
 
 def main():
@@ -229,25 +272,25 @@ def main():
 
     print('Reading {} ...'.format(args.map))
     img = read_image_with_alpha(args.map)
-    show_step(img)
+    show_step(img, 0)
 
     print('Adding grid ...')
     height, width, _ = img.shape
     grid = create_grid(height, width, args.cell_size)
-    show_step(blend(img, grid))
+    show_step(blend(img, grid), 0)
 
     print('Averaging cells ...')
     avg_cells = average_cells(img, args.cell_size)
     img = create_rasterized_image(avg_cells, args.cell_size)
     height, width, _ = img.shape
     grid = create_grid(height, width, args.cell_size)
-    show_step(blend(img, grid))
+    show_step(blend(img, grid), 0)
 
     print('Classifying cells ...')
     risk_cells = classify_cells(avg_cells)
     color_cells = risk_cells_to_color_cells(risk_cells)
     img = create_rasterized_image(color_cells, args.cell_size)
-    show_step(blend(img, grid))
+    show_step(blend(img, grid), 0)
 
     print('Smoothing cells ...')
     for i in range(20):
@@ -255,17 +298,28 @@ def main():
         smoothed_risk_cells = smooth(risk_cells, 1)
         color_cells = risk_cells_to_color_cells(smoothed_risk_cells)
         img = create_rasterized_image(color_cells, args.cell_size)
-        cv2.imshow('image', blend(img, grid))
-        cv2.waitKey(1)
+        show_step(blend(img, grid), 1)
         if np.array_equal(smoothed_risk_cells, risk_cells):
             break
         risk_cells = smoothed_risk_cells
-    show_step(blend(img, grid))
+    show_step(blend(img, grid), 0)
 
     print('Calculating forces on borders ...')
-    forces_on_borders = calculate_forces_on_borders(risk_cells)
-    forces_img = create_forces_image(forces_on_borders, args.cell_size)
-    show_step(blend(img, blend(grid, forces_img)))
+    forces = calculate_forces_on_borders(risk_cells)
+    forces_img = create_forces_image(forces, args.cell_size)
+    show_step(blend(img, blend(grid, forces_img)), 0)
+
+    print('Growing field of forces ...')
+    rows, columns, _ = forces.shape
+    forces_count = rows * columns
+    for i in range(100):
+        print(' - iteration ', i)
+        forces = grow_field_of_forces(forces)
+        forces_img = create_forces_image(forces, args.cell_size)
+        show_step(blend(img, blend(grid, forces_img)), 1)
+        if all_forces_are_non_zero(forces):
+            break
+    show_step(blend(img, blend(grid, forces_img)), 0)
 
     cv2.destroyAllWindows()
 
