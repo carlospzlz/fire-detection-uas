@@ -2,7 +2,7 @@
 
 import argparse
 from enum import Enum
-from math import pow
+from math import pow, cos, sin
 
 import numpy as np
 import cv2
@@ -132,19 +132,6 @@ def __getRisk(cell):
     return distances_and_risks[0][1]
 
 
-def create_risk_rasterized_image(img, cells, cell_size):
-    rows, columns = cells.shape
-    height, width = rows * cell_size, columns * cell_size
-    result = np.zeros((height, width, 4), dtype=np.uint8)
-    for i in range(rows):
-        for j in range(columns):
-            for ii in range(cell_size):
-                for jj in range(cell_size):
-                    color = RISK_TO_COLOR[Risk(cells[i][j])]
-                    result[i*cell_size + ii][j*cell_size + jj] = color
-    return result
-
-
 def risk_cells_to_color_cells(cells):
     rows, columns = cells.shape
     risk_color_cells = np.zeros((rows, columns, 4), dtype=np.uint8)
@@ -174,6 +161,75 @@ def smooth(cells, factor):
     return smoothed_cells
 
 
+def calculate_forces_on_borders(cells):
+    rows, columns = cells.shape
+    forces = np.zeros((rows, columns, 2), dtype=float)
+    row_steps = (-1, -1, -1,  0, 0,  1, 1, 1);
+    col_steps = (-1,  0,  1, -1, 1, -1, 0, 1);
+    for i in range(rows):
+        for j in range(columns):
+            risk = cells[i][j]
+            neighbours = {}
+            for ii, jj in zip(row_steps, col_steps):
+                row = (i + ii) % rows
+                column = (j + jj) % columns
+                neighbour_risk = cells[row][column]
+                if neighbour_risk in neighbours:
+                    neighbours[neighbour_risk].append(
+                        np.array((row, column)))
+                else:
+                    neighbours[neighbour_risk] = [np.array((row, column))]
+            print(neighbours)
+            forces[i][j] = __get_gradient_force(risk, neighbours)
+    return forces
+
+
+def __get_gradient_force(risk, neighbours):
+    """
+    Calculates the vector that points to the maximum risk.
+    """
+    if (len(neighbours) == 1 and risk in neighbours):
+        # There is no gradient, all cells are in the same region.
+        return np.zeros(2)
+
+    highest_risk = max(neighbours.keys())
+    if highest_risk < risk:
+        # Only touching lower risk cells.
+        return np.zeros(2)
+
+    gradient_force = np.zeros(2)
+    for force in neighbours[highest_risk]:
+        gradient_force += force
+    magnitude = np.linalg.norm(gradient_force)
+    if magnitude:
+        print(gradient_force / magnitude)
+        return gradient_force / magnitude
+    return np.zeros(2)
+
+
+def create_forces_image(forces, cell_size):
+    rows, columns, _ = forces.shape
+    img = np.zeros((rows * cell_size, columns * cell_size, 4), dtype=np.uint8)
+    for i in range(rows):
+        for j in range(columns):
+            force = forces[i][j]
+            if cv2.countNonZero(force):
+                #force = force * 2/3 * cell_size
+                #center_x = j * cell_size + cell_size / 2
+                #center_y = i * cell_size + cell_size / 2
+                #center = np.array((center_x, center_y))
+                #print(center)
+                #point1 = center - 1/2 * force
+                #point2 = center + 1/2 * force
+                #point1 = tuple(point1.astype(np.uint8))
+                #point2 = tuple(point2.astype(np.uint8))
+                point1 = (j * cell_size, i * cell_size)
+                point2 = (j * cell_size + cell_size, i * cell_size + cell_size)
+                cv2.arrowedLine(img, point1, point2, (0, 0, 0, 255), 1)
+                #cv2.circle(img, tuple(center.astype(np.uint8)), 2, (0, 0, 0, 255), -1)
+    return img
+
+
 def main():
     args = parse_args()
 
@@ -200,7 +256,7 @@ def main():
     show_step(blend(img, grid))
 
     print('Smoothing cells ...')
-    for i in range(50):
+    for i in range(20):
         print(' - iteration ', i)
         smoothed_risk_cells = smooth(risk_cells, 1)
         color_cells = risk_cells_to_color_cells(smoothed_risk_cells)
@@ -210,8 +266,13 @@ def main():
         if np.array_equal(smoothed_risk_cells, risk_cells):
             break
         risk_cells = smoothed_risk_cells
-
     show_step(blend(img, grid))
+
+    print('Calculating field of forces ...')
+    forces_on_borders = calculate_forces_on_borders(risk_cells)
+    print(forces_on_borders)
+    forces_img = create_forces_image(forces_on_borders, args.cell_size)
+    show_step(blend(img, forces_img))
 
     cv2.destroyAllWindows()
 
