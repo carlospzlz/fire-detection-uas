@@ -176,10 +176,9 @@ def calculate_forces_on_borders(cells):
                 neighbour_risk = cells[row][column]
                 if neighbour_risk in neighbours:
                     neighbours[neighbour_risk].append(
-                        np.array((row, column)))
+                        np.array((jj, ii)))
                 else:
-                    neighbours[neighbour_risk] = [np.array((row, column))]
-            print(neighbours)
+                    neighbours[neighbour_risk] = [np.array((jj, ii))]
             forces[i][j] = __get_gradient_force(risk, neighbours)
     return forces
 
@@ -197,12 +196,12 @@ def __get_gradient_force(risk, neighbours):
         # Only touching lower risk cells.
         return np.zeros(2)
 
+    print(neighbours)
     gradient_force = np.zeros(2)
     for force in neighbours[highest_risk]:
         gradient_force += force
     magnitude = np.linalg.norm(gradient_force)
     if magnitude:
-        print(gradient_force / magnitude)
         return gradient_force / magnitude
     return np.zeros(2)
 
@@ -214,19 +213,15 @@ def create_forces_image(forces, cell_size):
         for j in range(columns):
             force = forces[i][j]
             if cv2.countNonZero(force):
-                #force = force * 2/3 * cell_size
-                #center_x = j * cell_size + cell_size / 2
-                #center_y = i * cell_size + cell_size / 2
-                #center = np.array((center_x, center_y))
-                #print(center)
-                #point1 = center - 1/2 * force
-                #point2 = center + 1/2 * force
-                #point1 = tuple(point1.astype(np.uint8))
-                #point2 = tuple(point2.astype(np.uint8))
-                point1 = (j * cell_size, i * cell_size)
-                point2 = (j * cell_size + cell_size, i * cell_size + cell_size)
+                force = force * 2/3 * cell_size
+                center_x = j * cell_size + cell_size / 2
+                center_y = i * cell_size + cell_size / 2
+                center = np.array((center_x, center_y), dtype=int)
+                point1 = center - 1/2 * force
+                point2 = center + 1/2 * force
+                point1 = tuple(point1.astype(int))
+                point2 = tuple(point2.astype(int))
                 cv2.arrowedLine(img, point1, point2, (0, 0, 0, 255), 1)
-                #cv2.circle(img, tuple(center.astype(np.uint8)), 2, (0, 0, 0, 255), -1)
     return img
 
 
