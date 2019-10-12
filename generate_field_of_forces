@@ -7,6 +7,11 @@ from math import pow, cos, sin
 import numpy as np
 import cv2
 
+import utils
+
+
+__doc__ = 'Generates a field of forces based on Galicia\'s IRDI map.'
+
 
 class Risk(Enum):
     NONE = 0
@@ -45,19 +50,10 @@ def parse_args():
     """
     Parses map and cell size.
     """
-    parser = argparse.ArgumentParser(
-        description=(
-            'Generates a field of forces based on Galicia\'s IRDI map.'))
+    parser = argparse.ArgumentParser( description=__doc__)
     parser.add_argument('map', type=str, help='map file')
     parser.add_argument('cell_size', type=int, help='cell size')
     return parser.parse_args()
-
-
-def read_image_with_alpha(file_):
-    img = cv2.imread(file_, cv2.IMREAD_UNCHANGED)
-    b_channel, g_channel, r_channel = cv2.split(img)
-    alpha_channel = np.ones(b_channel.shape, dtype=b_channel.dtype) * 255
-    return cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
 
 
 def show_step(img, delay):
@@ -272,7 +268,7 @@ def main():
     args = parse_args()
 
     print('Reading {} ...'.format(args.map))
-    img = read_image_with_alpha(args.map)
+    img = utils.read_image_with_alpha(args.map)
     show_step(img, 0)
 
     print('Adding grid ...')
