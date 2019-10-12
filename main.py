@@ -74,13 +74,13 @@ def create_grid(height, width, cell_size):
 
 
 def blend(img1, img2):
-    b1, g1, r1, _ = cv2.split(img1)
-    b2, g2, r2, alpha = cv2.split(img2)
-    alpha = alpha.astype(float) / 255
+    b1, g1, r1, alpha1 = cv2.split(img1)
+    b2, g2, r2, alpha2 = cv2.split(img2)
+    alpha = alpha2.astype(float) / 255
     b = b2 * alpha + b1 * (1 - alpha)
     g = g2 * alpha + g1 * (1 - alpha)
     r = r2 * alpha + r1 * (1 - alpha)
-    alpha = np.ones(alpha.shape, dtype=np.uint8) * 255
+    alpha = (alpha1 + alpha2) // 2
     return cv2.merge(
         (b.astype(np.uint8), g.astype(np.uint8), r.astype(np.uint8), alpha))
 
@@ -196,7 +196,6 @@ def __get_gradient_force(risk, neighbours):
         # Only touching lower risk cells.
         return np.zeros(2)
 
-    print(neighbours)
     gradient_force = np.zeros(2)
     for force in neighbours[highest_risk]:
         gradient_force += force
@@ -213,7 +212,7 @@ def create_forces_image(forces, cell_size):
         for j in range(columns):
             force = forces[i][j]
             if cv2.countNonZero(force):
-                force = force * 2/3 * cell_size
+                force = force * 1/2 * cell_size
                 center_x = j * cell_size + cell_size / 2
                 center_y = i * cell_size + cell_size / 2
                 center = np.array((center_x, center_y), dtype=int)
@@ -263,11 +262,10 @@ def main():
         risk_cells = smoothed_risk_cells
     show_step(blend(img, grid))
 
-    print('Calculating field of forces ...')
+    print('Calculating forces on borders ...')
     forces_on_borders = calculate_forces_on_borders(risk_cells)
-    print(forces_on_borders)
     forces_img = create_forces_image(forces_on_borders, args.cell_size)
-    show_step(blend(img, forces_img))
+    show_step(blend(img, blend(grid, forces_img)))
 
     cv2.destroyAllWindows()
 
