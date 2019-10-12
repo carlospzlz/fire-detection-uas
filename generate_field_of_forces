@@ -46,7 +46,8 @@ def parse_args():
     Parses map and cell size.
     """
     parser = argparse.ArgumentParser(
-        description='Experiment with Galicia\'s IRDI map.')
+        description=(
+            'Generates a field of forces based on Galicia\'s IRDI map.'))
     parser.add_argument('map', type=str, help='map file')
     parser.add_argument('cell_size', type=int, help='cell size')
     return parser.parse_args()
