@@ -310,8 +310,6 @@ def main():
     show_step(blend(img, blend(grid, forces_img)), 0)
 
     print('Growing field of forces ...')
-    rows, columns, _ = forces.shape
-    forces_count = rows * columns
     for i in range(100):
         print(' - iteration ', i)
         forces = grow_field_of_forces(forces)
@@ -320,6 +318,10 @@ def main():
         if all_forces_are_non_zero(forces):
             break
     show_step(blend(img, blend(grid, forces_img)), 0)
+
+    print('Saving field of forces ...')
+    filename = 'field_of_forces.npy'
+    np.save(filename, forces)
 
     cv2.destroyAllWindows()
 
