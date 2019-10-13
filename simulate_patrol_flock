@@ -92,7 +92,6 @@ def __clamp_velocity_to_max_speed(velocity):
     return velocity
 
 
-
 def create_agents_image(height, width, agents):
     img = np.zeros((height, width, 4), dtype=np.uint8)
     for agent in agents:
@@ -101,6 +100,16 @@ def create_agents_image(height, width, agents):
         cv2.circle(img, position, 4, AGENT_BODY, -1)
         cv2.circle(img, position, 16, AGENT_BODY, 1)
     return img
+
+
+def read_input(key):
+    global MAX_SPEED
+    if key == 82:
+        MAX_SPEED += 0.1
+        print(MAX_SPEED)
+    elif key == 84:
+        MAX_SPEED -= 0.1
+        print(MAX_SPEED)
 
 
 def main():
@@ -122,6 +131,7 @@ def main():
     cell_size = height // field_of_forces.shape[0]
     key = 0
     while key != 27:
+        read_input(key)
         update_agents(agents, field_of_forces, cell_size)
         agents_img = create_agents_image(height, width, agents)
         cv2.imshow('image', utils.blend(img, agents_img))
