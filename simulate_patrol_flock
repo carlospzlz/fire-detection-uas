@@ -1,0 +1,132 @@
+#!/usr/bin/env python
+
+import argparse
+from enum import Enum
+from math import pow, cos, sin
+
+import numpy as np
+import cv2
+
+import utils
+
+
+__doc__ = (
+    'Simulates a patrol flock over Galicia based on a pre-computed field of '
+    'forces.')
+
+
+AGENT_BODY = (0, 0, 0, 255)
+AGENT_VISION = (0, 0, 0, 50)
+FORCE_FACTOR =  0.05
+SEPARATION_RANGE = 40
+SEPARATION_FACTOR = 0.1
+MAX_SPEED = 1.5
+
+class Agent(object):
+    def __init__(self, x, y):
+        self.position = np.array((x, y))
+        self.velocity = np.array((0, 1))
+
+
+def parse_args():
+    """
+    Parses map and field of forces.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('map', type=str, help='map file')
+    parser.add_argument('forces', type=str, help='field of forces file')
+    return parser.parse_args()
+
+
+def on_mouse_event(event, x, y, flags, agents):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        agents.append(Agent(x, y))
+
+
+def update_agents(agents, field_of_forces, cell_size):
+    for agent in agents:
+        # Force that steers to regions of high risk of fire.
+        force_from_field = __get_force_from_field(
+            agent, field_of_forces, cell_size)
+        # Force that separates from other agents.
+        separation_force = __get_separation_force(agent, agents)
+        # We weight the forces and add them to the velocity
+        total_force = (
+            force_from_field * FORCE_FACTOR +
+            separation_force * SEPARATION_FACTOR)
+        velocity = agent.velocity + total_force
+        agent.velocity = __clamp_velocity_to_max_speed(velocity)
+        agent.position = agent.position + agent.velocity
+
+
+def __get_force_from_field(agent, field_of_forces, cell_size):
+    x, y = agent.position.astype(int)
+    force_from_field = np.zeros(2)
+    if x > 0 and y > 0:
+        row, col = y // cell_size, x // cell_size
+        rows, columns, _ = field_of_forces.shape
+        if row < rows and col < columns:
+            force_from_field = field_of_forces[row][col]
+    return force_from_field
+
+
+def __get_separation_force(agent, agents):
+    separation_force = np.zeros(2)
+    for other in agents:
+        if other is not agent:
+            other_force = agent.position - other.position
+            other_magnitude = np.linalg.norm(other_force)
+            if other_magnitude < SEPARATION_RANGE:
+                other_force /= other_magnitude
+                separation_force += other_force;
+    separation_magnitude = np.linalg.norm(separation_force)
+    if separation_magnitude:
+        separation_force /= separation_magnitude
+    return separation_force
+
+
+def __clamp_velocity_to_max_speed(velocity):
+    speed = np.linalg.norm(velocity)
+    if speed > MAX_SPEED:
+        velocity = velocity / speed * MAX_SPEED
+    return velocity
+
+
+
+def create_agents_image(height, width, agents):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    for agent in agents:
+        position = tuple(agent.position.astype(int))
+        cv2.circle(img, position, 15, AGENT_VISION, -1)
+        cv2.circle(img, position, 4, AGENT_BODY, -1)
+        cv2.circle(img, position, 16, AGENT_BODY, 1)
+    return img
+
+
+def main():
+    args = parse_args()
+
+    print('Reading {} ...'.format(args.forces))
+    field_of_forces = np.load('field_of_forces.npy')
+    print(field_of_forces.shape)
+
+    print('Reading {} ...'.format(args.map))
+    img = utils.read_image_with_alpha(args.map)
+
+    agents = []
+
+    cv2.namedWindow('image')
+    cv2.setMouseCallback('image', on_mouse_event, agents)
+
+    height, width, _ = img.shape
+    cell_size = height // field_of_forces.shape[0]
+    key = 0
+    while key != 27:
+        update_agents(agents, field_of_forces, cell_size)
+        agents_img = create_agents_image(height, width, agents)
+        cv2.imshow('image', utils.blend(img, agents_img))
+        key = cv2.waitKey(1)
+
+
+if __name__ == '__main__':
+    main()
