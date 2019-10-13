@@ -11,8 +11,9 @@ import utils
 
 
 __doc__ = (
-    'Simulates a patrol flock over Galicia based on a pre-computed field of '
-    'forces.')
+    'Click on the image to deploy a new UAV that flies over Galicia and surfs '
+    'on the pre-computed field of forces to reach the regions with highest '
+    'risk of fire.')
 
 
 AGENT_BODY = (0, 0, 0, 255)
