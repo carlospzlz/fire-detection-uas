@@ -19,3 +19,11 @@ def blend(img1, img2):
     alpha = (alpha1 + alpha2) // 2
     return cv2.merge(
         (b.astype(np.uint8), g.astype(np.uint8), r.astype(np.uint8), alpha))
+
+
+def window_is_open(window_name):
+    try:
+        cv2.getWindowProperty(window_name, 0)
+    except cv2.error:
+        return False
+    return True

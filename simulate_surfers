@@ -23,6 +23,7 @@ SEPARATION_RANGE = 40
 SEPARATION_FACTOR = 0.1
 MAX_SPEED = 1.5
 
+
 class Agent(object):
     def __init__(self, x, y):
         self.position = np.array((x, y))
@@ -118,7 +119,6 @@ def main():
 
     print('Reading {} ...'.format(args.forces))
     field_of_forces = np.load('field_of_forces.npy')
-    print(field_of_forces.shape)
 
     print('Reading {} ...'.format(args.map))
     img = utils.read_image_with_alpha(args.map)
@@ -131,7 +131,7 @@ def main():
     height, width, _ = img.shape
     cell_size = height // field_of_forces.shape[0]
     key = 0
-    while key != 27:
+    while key != 27 and utils.window_is_open('image'):
         read_input(key)
         update_agents(agents, field_of_forces, cell_size)
         agents_img = create_agents_image(height, width, agents)
