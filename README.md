@@ -29,10 +29,23 @@ gradient of the fire risk index, the second schedules routes from a base to visi
 
 Above we show the IRDI map (Indice the Riesgo De Fuego) on the 13th of October of 2019.
 
-![](captures/irdi_map_2019_10_11.jpg)
+![](captures/irdi_map_2019_10_13.jpg)
 
 Green and blue represent low and very low risk of fire, orange and red represent high and very high risk.
 
 The first step in our process is to divide our space in cells with certain cell size.
 
-![](captures/divided_irdi_map_2019_10_11.jpg)
+![](captures/divided_irdi_map.png)
+
+After that the average value of each cell is calculated.
+
+![](captures/averaged_irdi_map.png)
+
+We classify the cells into the original cluster risks and apply a slight smooth.
+
+![](captures/smoothing_irdi_map.gif)
+
+Finally, the last step is to calculate the forces that a UAV should follow when it is flying close to a border
+and we grow the whole field of forces from there.
+
+![](captures/generating_field_of_forces.gif)
