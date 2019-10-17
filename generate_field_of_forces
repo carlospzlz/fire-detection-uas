@@ -107,11 +107,11 @@ def classify_cells(cells):
     for i in range(rows):
         for j in range(columns):
             limits = rows, columns
-            classified_cells[i][j] = __getRisk(cells[i][j])
+            classified_cells[i][j] = __get_risk(cells[i][j])
     return classified_cells
 
 
-def __getRisk(cell):
+def __get_risk(cell):
     distances_and_risks = []
     for color, risk in COLOR_TO_RISK.items():
         distance = sum(pow(color[i] - cell[i], 2) for i in range(3))
@@ -175,7 +175,7 @@ def __get_gradient_force(risk, neighbours):
     """
     Calculates the vector that points to the maximum risk.
     """
-    if (len(neighbours) == 1 and risk in neighbours):
+    if len(neighbours) == 1 and risk in neighbours:
         # There is no gradient, all cells are in the same region.
         return np.zeros(2)
 
@@ -233,11 +233,11 @@ def grow_field_of_forces(forces, min_influence=3):
                     if np.count_nonzero(neighbour_force):
                         neighbours.append(neighbour_force)
                 if len(neighbours) >= min_influence:
-                    grown_forces[i][j] = __getMeanForce(neighbours)
+                    grown_forces[i][j] = __get_mean_force(neighbours)
     return grown_forces
 
 
-def __getMeanForce(forces):
+def __get_mean_force(forces):
     mean_force = np.zeros(2)
     for force in forces:
         mean_force += force
