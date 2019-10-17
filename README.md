@@ -49,3 +49,8 @@ Finally, the last step is to calculate the forces that a UAV should follow when 
 and we grow the whole field of forces from there.
 
 ![](captures/generating_field_of_forces.gif)
+
+We bake this field of forces to a file that then can be loaded to steer UAVs. The drones surf the forces aiming
+to the peak of the waves, being those the regions with highest risk of fire.
+
+![](captures/surfing.gif)
