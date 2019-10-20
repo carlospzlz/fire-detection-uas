@@ -58,10 +58,10 @@ def get_hot_spots(hot_cells, cell_size):
     return hot_spots
 
 
-def create_hot_spots_image(rows, columns, hot_spots):
-    img = np.zeros((rows, columns, 4), dtype=np.uint8)
-    for i in range(rows):
-        for j in range(columns):
+def create_hot_spots_image(height, width, hot_spots):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    for i in range(height):
+        for j in range(width):
             if (i, j) in hot_spots:
                 cv2.circle(img, (j, i), 2, (0, 0, 0, 255), -1)
     return img
@@ -109,13 +109,18 @@ def main():
     hot_cells = select_hot_cells(risk_cells, risk, args.separation)
     hot_spots = get_hot_spots(hot_cells, args.cell_size)
     rows, columns = hot_cells.shape
-    rows, columns = rows * args.cell_size, columns * args.cell_size
-    hot_spots_img = create_hot_spots_image(rows, columns, hot_spots)
+    height, width = rows * args.cell_size, columns * args.cell_size
+    hot_spots_img = create_hot_spots_image(height, width, hot_spots)
     show_step(utils.blend(img, utils.blend(grid, hot_spots_img)), 0)
 
     print('Saving hot spots ...')
+    # We need to save a numpy array of numpy pairs (not Python objects).
+    l = []
+    for hot_spot in hot_spots:
+        hot_spot = np.array(hot_spot, dtype=int)
+        l.append(hot_spot)
     filename = 'hot_spots.npy'
-    np.save(filename, np.array(hot_spots))
+    np.save(filename, np.array(l))
 
     cv2.destroyAllWindows()
 

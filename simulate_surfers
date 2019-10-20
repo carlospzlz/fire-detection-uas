@@ -118,7 +118,7 @@ def main():
     args = parse_args()
 
     print('Reading {} ...'.format(args.forces))
-    field_of_forces = np.load('field_of_forces.npy')
+    field_of_forces = np.load(args.forces)
 
     print('Reading {} ...'.format(args.map))
     img = utils.read_image_with_alpha(args.map)

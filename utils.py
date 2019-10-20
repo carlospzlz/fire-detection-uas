@@ -51,7 +51,7 @@ def blend(img1, img2):
     b = b2 * alpha + b1 * (1 - alpha)
     g = g2 * alpha + g1 * (1 - alpha)
     r = r2 * alpha + r1 * (1 - alpha)
-    alpha = (alpha1 + alpha2) // 2
+    alpha = np.maximum(alpha1, alpha2)
     return cv2.merge(
         (b.astype(np.uint8), g.astype(np.uint8), r.astype(np.uint8), alpha))
 
