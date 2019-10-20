@@ -12,15 +12,15 @@ import utils
 
 
 __doc__ = (
-    'Click on the image to deploy a new UAV that flies over Galicia and surfs '
-    'on the pre-computed field of forces to reach the regions with highest '
-    'risk of fire.')
+    'Click on the image to deploy a Base where UAVs can fly from towards the'
+    'spots with highest risk of fire on Galicia')
 
 
+WINDOW_NAME = 'Travellers'
 BASE_COLOR = (0, 0, 0, 255)
 AGENT_BODY = (0, 0, 0, 255)
 AGENT_VISION = (0, 0, 0, 50)
-BASE_RADIUS = 80
+BASE_RADIUS = 100
 MAX_SPEED = 1.5
 BASE_SEPARATION = 20
 AGENT_TO_SPOT_DISTANCE = 5
@@ -78,6 +78,10 @@ def read_hot_spots(hot_spots_file):
     return hot_spots_list
 
 
+def show_step(image, delay):
+    utils.show_step(WINDOW_NAME, image, delay)
+
+
 def on_mouse_event(event, x, y, flags, param):
     bases, agents, hot_spots, taken_spots = param
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -96,8 +100,6 @@ def add_agent_on_base(base, agents, taken_spots):
     spots = deque()
     total_distance = 0
     previous_spot = base.position
-    print('Add new?')
-    print(len(base.hot_spots), '/', len(taken_spots))
     for _ in range(len(base.hot_spots)):
         spot = base.hot_spots[0]
         if not spot in taken_spots:
@@ -115,7 +117,6 @@ def add_agent_on_base(base, agents, taken_spots):
         agent = create_agent(base, spots)
         agents.append(agent)
         return True
-    print('Nope')
     return False
 
 
@@ -180,15 +181,6 @@ def read_input(key):
         print(MAX_SPEED)
 
 
-def create_hot_spots_image(height, width, hot_spots):
-    img = np.zeros((height, width, 4), dtype=np.uint8)
-    for i in range(height):
-        for j in range(width):
-            if (i, j) in hot_spots:
-                cv2.circle(img, (j, i), 2, (0, 0, 0, 255), -1)
-    return img
-
-
 def main():
     args = parse_args()
 
@@ -202,22 +194,19 @@ def main():
     agents = []
     taken_spots = set()
 
-    cv2.namedWindow('image')
+    cv2.namedWindow(WINDOW_NAME)
     param = (bases, agents, hot_spots, taken_spots)
-    cv2.setMouseCallback('image', on_mouse_event, param)
-
+    cv2.setMouseCallback(WINDOW_NAME, on_mouse_event, param)
 
     height, width, _ = img.shape
     key = 0
-    while key != 27 and utils.window_is_open('image'):
+    while key != 27 and utils.window_is_open(WINDOW_NAME):
         read_input(key)
         update_agents(agents, taken_spots)
         agents_img = create_agents_image(height, width, agents)
         bases_img = create_bases_image(height, width, bases)
         agents_img = create_agents_image(height, width, agents)
-        cv2.imshow(
-            'image', utils.blend(img, utils.blend(bases_img, agents_img)))
-        key = cv2.waitKey(1)
+        show_step(utils.blend(img, utils.blend(bases_img, agents_img)), 1)
 
 
 if __name__ == '__main__':

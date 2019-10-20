@@ -16,6 +16,7 @@ __doc__ = (
     'risk of fire.')
 
 
+WINDOW_NAME = 'Surfers'
 AGENT_BODY = (0, 0, 0, 255)
 AGENT_VISION = (0, 0, 0, 50)
 FORCE_FACTOR =  0.05
@@ -38,6 +39,10 @@ def parse_args():
     parser.add_argument('map', type=str, help='map file')
     parser.add_argument('forces', type=str, help='field of forces file')
     return parser.parse_args()
+
+
+def show_step(image, delay):
+    utils.show_step(WINDOW_NAME, image, delay)
 
 
 def on_mouse_event(event, x, y, flags, agents):
@@ -125,18 +130,17 @@ def main():
 
     agents = []
 
-    cv2.namedWindow('image')
-    cv2.setMouseCallback('image', on_mouse_event, agents)
+    cv2.namedWindow(WINDOW_NAME)
+    cv2.setMouseCallback(WINDOW_NAME, on_mouse_event, agents)
 
     height, width, _ = img.shape
     cell_size = height // field_of_forces.shape[0]
     key = 0
-    while key != 27 and utils.window_is_open('image'):
+    while key != 27 and utils.window_is_open(WINDOW_NAME):
         read_input(key)
         update_agents(agents, field_of_forces, cell_size)
         agents_img = create_agents_image(height, width, agents)
-        cv2.imshow('image', utils.blend(img, agents_img))
-        key = cv2.waitKey(1)
+        show_step(utils.blend(img, agents_img), 1)
 
 
 if __name__ == '__main__':
