@@ -35,26 +35,35 @@ def show_step(image, delay):
     utils.show_step(WINDOW_NAME, image, delay)
 
 
-def select_hot_spots(cells, risk, separation):
+def select_hot_cells(cells, risk, separation):
     rows, columns = cells.shape
-    hot_spots = np.full((rows, columns), False)
+    hot_cells = np.full((rows, columns), False)
     for i in range(0, rows, separation):
         for j in range(0, columns, separation):
             if not cells[i][j] < risk:
-                hot_spots[i][j] = True
+                hot_cells[i][j] = True
+    return hot_cells
+
+
+def get_hot_spots(hot_cells, cell_size):
+    rows, columns = hot_cells.shape
+    hot_spots = set()
+    for i in range(rows):
+        for j in range(columns):
+            if hot_cells[i][j]:
+                half_cell = cell_size / 2
+                hot_spot_i = int(i * cell_size + half_cell)
+                hot_spot_j = int(j * cell_size + half_cell)
+                hot_spots.add((hot_spot_i, hot_spot_j))
     return hot_spots
 
 
-def create_hot_spots_image(hot_spots, cell_size):
-    rows, columns = hot_spots.shape
-    img = np.zeros((rows * cell_size, columns * cell_size, 4), dtype=np.uint8)
+def create_hot_spots_image(rows, columns, hot_spots):
+    img = np.zeros((rows, columns, 4), dtype=np.uint8)
     for i in range(rows):
         for j in range(columns):
-            if hot_spots[i][j]:
-                half_cell = cell_size / 2
-                x = int(j * cell_size + half_cell)
-                y = int(i * cell_size + half_cell)
-                cv2.circle(img, (x, y), 2, (0, 0, 0, 255), -1)
+            if (i, j) in hot_spots:
+                cv2.circle(img, (j, i), 2, (0, 0, 0, 255), -1)
     return img
 
 
@@ -97,13 +106,16 @@ def main():
 
     print('Selecting hot spots ...')
     risk = utils.Risk(args.risk)
-    hot_spots = select_hot_spots(risk_cells, risk, args.separation)
-    hot_spots_img = create_hot_spots_image(hot_spots, args.cell_size)
+    hot_cells = select_hot_cells(risk_cells, risk, args.separation)
+    hot_spots = get_hot_spots(hot_cells, args.cell_size)
+    rows, columns = hot_cells.shape
+    rows, columns = rows * args.cell_size, columns * args.cell_size
+    hot_spots_img = create_hot_spots_image(rows, columns, hot_spots)
     show_step(utils.blend(img, utils.blend(grid, hot_spots_img)), 0)
 
-    print('Saving field of forces ...')
-    #filename = 'field_of_forces.npy'
-    #np.save(filename, forces)
+    print('Saving hot spots ...')
+    filename = 'hot_spots.npy'
+    np.save(filename, np.array(hot_spots))
 
     cv2.destroyAllWindows()
 
