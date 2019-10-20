@@ -20,19 +20,18 @@ __doc__ = (
 BASE_COLOR = (0, 0, 0, 255)
 AGENT_BODY = (0, 0, 0, 255)
 AGENT_VISION = (0, 0, 0, 50)
-BASE_RADIUS = 100
+BASE_RADIUS = 80
 MAX_SPEED = 1.5
 BASE_SEPARATION = 20
 AGENT_TO_SPOT_DISTANCE = 5
-AGENT_BATTERY = 800
+AGENT_BATTERY = 600
 
 
 class Base(object):
     def __init__(self, x, y, hot_spots):
         self.position = np.array((x, y), dtype=float)
         hot_spots = self.__get_close_hot_spots(hot_spots, BASE_RADIUS)
-        self.hot_spots = self.__sort_by_angle(hot_spots)
-        print(self.hot_spots)
+        self.hot_spots = deque(self.__sort_by_angle(hot_spots))
 
     def __get_close_hot_spots(self, hot_spots, radius):
         close_hot_spots = []
@@ -97,7 +96,10 @@ def add_agent_on_base(base, agents, taken_spots):
     spots = deque()
     total_distance = 0
     previous_spot = base.position
-    for spot in base.hot_spots:
+    print('Add new?')
+    print(len(base.hot_spots), '/', len(taken_spots))
+    for _ in range(len(base.hot_spots)):
+        spot = base.hot_spots[0]
         if not spot in taken_spots:
             spots.append(spot)
             taken_spots.add(spot)
@@ -106,12 +108,14 @@ def add_agent_on_base(base, agents, taken_spots):
             pevious_spot = spot
             if total_distance > AGENT_BATTERY:
                 break
+        # Rotate spots in base.
+        base.hot_spots.append(base.hot_spots.popleft())
     if spots:
         spots.append(tuple(base.position))
         agent = create_agent(base, spots)
         agents.append(agent)
-        print(spots)
         return True
+    print('Nope')
     return False
 
 
@@ -134,6 +138,12 @@ def create_bases_image(height, width, bases):
         cv2.circle(img, position, 10, BASE_COLOR, 2)
         cv2.circle(img, position, BASE_RADIUS, BASE_COLOR, 1)
     return img
+
+
+def update_bases(bases, agents, taken_spots):
+    for base in bases:
+        while add_agent_on_base(base, agents, taken_spots):
+            pass
 
 
 def update_agents(agents, taken_spots):
@@ -176,6 +186,7 @@ def read_input(key):
         print(MAX_SPEED)
 
 
+
 def create_hot_spots_image(height, width, hot_spots):
     img = np.zeros((height, width, 4), dtype=np.uint8)
     for i in range(height):
@@ -204,7 +215,6 @@ def main():
 
 
     height, width, _ = img.shape
-    hot_spots_img = create_hot_spots_image(height, width, hot_spots)
     key = 0
     while key != 27 and utils.window_is_open('image'):
         read_input(key)
@@ -212,8 +222,6 @@ def main():
         agents_img = create_agents_image(height, width, agents)
         bases_img = create_bases_image(height, width, bases)
         agents_img = create_agents_image(height, width, agents)
-        #cv2.imshow(
-        #    'image', utils.blend(img, utils.blend(hot_spots_img, agents_img)))
         cv2.imshow(
             'image', utils.blend(img, utils.blend(bases_img, agents_img)))
         key = cv2.waitKey(1)
