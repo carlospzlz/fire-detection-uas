@@ -140,12 +140,6 @@ def create_bases_image(height, width, bases):
     return img
 
 
-def update_bases(bases, agents, taken_spots):
-    for base in bases:
-        while add_agent_on_base(base, agents, taken_spots):
-            pass
-
-
 def update_agents(agents, taken_spots):
     finished_agents = []
     for agent in agents:
@@ -184,7 +178,6 @@ def read_input(key):
     elif key == 84:
         MAX_SPEED -= 0.1
         print(MAX_SPEED)
-
 
 
 def create_hot_spots_image(height, width, hot_spots):
