@@ -1,0 +1,223 @@
+#!/usr/bin/env python
+
+import argparse
+from collections import deque
+from enum import Enum
+from math import pow, cos, sin, sqrt, atan2
+
+import numpy as np
+import cv2
+
+import utils
+
+
+__doc__ = (
+    'Click on the image to deploy a new UAV that flies over Galicia and surfs '
+    'on the pre-computed field of forces to reach the regions with highest '
+    'risk of fire.')
+
+
+BASE_COLOR = (0, 0, 0, 255)
+AGENT_BODY = (0, 0, 0, 255)
+AGENT_VISION = (0, 0, 0, 50)
+BASE_RADIUS = 100
+MAX_SPEED = 1.5
+BASE_SEPARATION = 20
+AGENT_TO_SPOT_DISTANCE = 5
+AGENT_BATTERY = 800
+
+
+class Base(object):
+    def __init__(self, x, y, hot_spots):
+        self.position = np.array((x, y), dtype=float)
+        hot_spots = self.__get_close_hot_spots(hot_spots, BASE_RADIUS)
+        self.hot_spots = self.__sort_by_angle(hot_spots)
+        print(self.hot_spots)
+
+    def __get_close_hot_spots(self, hot_spots, radius):
+        close_hot_spots = []
+        for spot in hot_spots:
+            spot_array = np.array(spot, dtype=float)
+            distance = calculate_distance(self.position, spot_array)
+            if distance < radius:
+                close_hot_spots.append(spot)
+        return close_hot_spots
+
+    def __sort_by_angle(self, points):
+        items = []
+        x, y = self.position
+        for point in points:
+            angle = atan2(point[1] - y, point[0] - x)
+            items.append((angle, point))
+        items.sort()
+        return tuple(point for _, point in items)
+
+
+class Agent(object):
+    def __init__(self, x, y, base):
+        self.base = base
+        self.position = np.array((x, y), dtype=float)
+        self.velocity = np.array((0, 0), dtype=float)
+        self.spots = deque()
+
+
+def parse_args():
+    """
+    Parses map and field of forces.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('map', type=str, help='map file')
+    parser.add_argument('hot_spots', type=str, help='Hot spots file')
+    return parser.parse_args()
+
+
+def read_hot_spots(hot_spots_file):
+    hot_spots = np.load(hot_spots_file)
+    hot_spots_list = []
+    for hot_spot in hot_spots:
+        hot_spots_list.append(tuple(hot_spot))
+    return hot_spots_list
+
+
+def on_mouse_event(event, x, y, flags, param):
+    bases, agents, hot_spots, taken_spots = param
+    if event == cv2.EVENT_LBUTTONDOWN:
+        point = np.array((x, y))
+        base = Base(x, y, hot_spots)
+        bases.append(base)
+        while add_agent_on_base(base, agents, taken_spots):
+            pass
+
+
+def calculate_distance(p1, p2):
+    return np.linalg.norm(p2 - p1)
+
+
+def add_agent_on_base(base, agents, taken_spots):
+    spots = deque()
+    total_distance = 0
+    previous_spot = base.position
+    for spot in base.hot_spots:
+        if not spot in taken_spots:
+            spots.append(spot)
+            taken_spots.add(spot)
+            spot = np.array(spot)
+            total_distance += calculate_distance(previous_spot, spot)
+            pevious_spot = spot
+            if total_distance > AGENT_BATTERY:
+                break
+    if spots:
+        spots.append(tuple(base.position))
+        agent = create_agent(base, spots)
+        agents.append(agent)
+        print(spots)
+        return True
+    return False
+
+
+def create_agent(base, spots):
+    agent = Agent(*base.position, base)
+    agent.spots = spots
+    target = np.array(agent.spots[0])
+    aim_vector = target - agent.position
+    magnitude = np.linalg.norm(aim_vector)
+    agent.velocity = aim_vector / magnitude * MAX_SPEED
+    return agent
+
+
+def create_bases_image(height, width, bases):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    for base in bases:
+        position = tuple(base.position.astype(int))
+        cv2.circle(img, position, 2, BASE_COLOR, 2)
+        cv2.circle(img, position, 6, BASE_COLOR, 2)
+        cv2.circle(img, position, 10, BASE_COLOR, 2)
+        cv2.circle(img, position, BASE_RADIUS, BASE_COLOR, 1)
+    return img
+
+
+def update_agents(agents, taken_spots):
+    finished_agents = []
+    for agent in agents:
+        target = np.array(agent.spots[0])
+        if calculate_distance(agent.position, target) < AGENT_TO_SPOT_DISTANCE:
+            taken_spots.discard(agent.spots.popleft())
+            if agent.spots:
+                target = np.array(agent.spots[0])
+                aim_vector = target - agent.position
+                magnitude = np.linalg.norm(aim_vector)
+                agent.velocity = aim_vector / magnitude * MAX_SPEED
+            else:
+                finished_agents.append(agent)
+                add_agent_on_base(agent.base, agents, taken_spots)
+        else:
+            agent.position += agent.velocity
+    for finished_agent in finished_agents:
+        agents.remove(finished_agent)
+
+
+def create_agents_image(height, width, agents):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    for agent in agents:
+        position = tuple(agent.position.astype(int))
+        cv2.circle(img, position, 15, AGENT_VISION, -1)
+        cv2.circle(img, position, 4, AGENT_BODY, -1)
+        cv2.circle(img, position, 16, AGENT_BODY, 1)
+    return img
+
+
+def read_input(key):
+    global MAX_SPEED
+    if key == 82:
+        MAX_SPEED += 0.1
+        print(MAX_SPEED)
+    elif key == 84:
+        MAX_SPEED -= 0.1
+        print(MAX_SPEED)
+
+
+def create_hot_spots_image(height, width, hot_spots):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    for i in range(height):
+        for j in range(width):
+            if (i, j) in hot_spots:
+                cv2.circle(img, (j, i), 2, (0, 0, 0, 255), -1)
+    return img
+
+
+def main():
+    args = parse_args()
+
+    print('Reading {} ...'.format(args.hot_spots))
+    hot_spots = read_hot_spots(args.hot_spots)
+
+    print('Reading {} ...'.format(args.map))
+    img = utils.read_image_with_alpha(args.map)
+
+    bases = []
+    agents = []
+    taken_spots = set()
+
+    cv2.namedWindow('image')
+    param = (bases, agents, hot_spots, taken_spots)
+    cv2.setMouseCallback('image', on_mouse_event, param)
+
+
+    height, width, _ = img.shape
+    hot_spots_img = create_hot_spots_image(height, width, hot_spots)
+    key = 0
+    while key != 27 and utils.window_is_open('image'):
+        read_input(key)
+        update_agents(agents, taken_spots)
+        agents_img = create_agents_image(height, width, agents)
+        bases_img = create_bases_image(height, width, bases)
+        agents_img = create_agents_image(height, width, agents)
+        #cv2.imshow(
+        #    'image', utils.blend(img, utils.blend(hot_spots_img, agents_img)))
+        cv2.imshow(
+            'image', utils.blend(img, utils.blend(bases_img, agents_img)))
+        key = cv2.waitKey(1)
+
+
+if __name__ == '__main__':
+    main()
