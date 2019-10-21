@@ -74,7 +74,9 @@ def read_hot_spots(hot_spots_file):
     hot_spots = np.load(hot_spots_file)
     hot_spots_list = []
     for hot_spot in hot_spots:
-        hot_spots_list.append(tuple(hot_spot))
+        # We stop working with row/col and work with x/y. We swap them.
+        hot_spot = hot_spot[1], hot_spot[0]
+        hot_spots_list.append(hot_spot)
     return hot_spots_list
 
 
@@ -168,6 +170,15 @@ def create_agents_image(height, width, agents):
         cv2.circle(img, position, 15, AGENT_VISION, -1)
         cv2.circle(img, position, 4, AGENT_BODY, -1)
         cv2.circle(img, position, 16, AGENT_BODY, 1)
+    return img
+
+
+def create_hot_spots_image(height, width, hot_spots):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    for y in range(height):
+        for x in range(width):
+            if (x, y) in hot_spots:
+                cv2.circle(img, (x, y), 2, (0, 0, 0, 255), -1)
     return img
 
 
