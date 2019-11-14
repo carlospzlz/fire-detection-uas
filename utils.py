@@ -84,7 +84,7 @@ def window_is_open(window_name):
 
 def show_step(window_name, image, delay):
     cv2.imshow(window_name, image)
-    cv2.waitKey(delay)
+    return cv2.waitKey(delay)
 
 
 def create_grid(height, width, cell_size):

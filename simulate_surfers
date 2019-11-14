@@ -60,7 +60,7 @@ def parse_args():
 
 
 def show_step(image, delay):
-    utils.show_step(WINDOW_NAME, image, delay)
+    return utils.show_step(WINDOW_NAME, image, delay)
 
 
 def on_mouse_event(event, x, y, flags, agents):
@@ -158,7 +158,7 @@ def main():
         read_input(key)
         update_agents(agents, field_of_forces, cell_size)
         agents_img = create_agents_image(height, width, agents)
-        show_step(utils.blend(img, agents_img), 1)
+        key = show_step(utils.blend(img, agents_img), 1)
 
 
 if __name__ == '__main__':

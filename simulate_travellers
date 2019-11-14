@@ -99,7 +99,7 @@ def read_hot_spots(hot_spots_file):
 
 
 def show_step(image, delay):
-    utils.show_step(WINDOW_NAME, image, delay)
+    return utils.show_step(WINDOW_NAME, image, delay)
 
 
 def on_mouse_event(event, x, y, flags, param):
@@ -235,7 +235,8 @@ def main():
         agents_img = create_agents_image(height, width, agents)
         bases_img = create_bases_image(height, width, bases)
         agents_img = create_agents_image(height, width, agents)
-        show_step(utils.blend(img, utils.blend(bases_img, agents_img)), 1)
+        key = show_step(
+            utils.blend(img, utils.blend(bases_img, agents_img)), 1)
 
 
 if __name__ == '__main__':
