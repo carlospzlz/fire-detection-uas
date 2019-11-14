@@ -32,7 +32,7 @@ schedules routes from a base to visit the hottest spots.
 
 ## Approach 1: Surfers
 
-Above we show the IRDI map (Indice the Riesgo De Fuego) on the 13th of October
+Below we show the IRDI map (Indice the Riesgo De Fuego) on the 13th of October
 of 2019.
 
 ![](captures/irdi_map_2019_10_13.jpg)
