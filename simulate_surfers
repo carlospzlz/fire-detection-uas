@@ -129,10 +129,10 @@ def create_agents_image(height, width, agents):
 
 def read_input(key):
     global MAX_SPEED
-    if key == 82:
+    if key == 43:
         MAX_SPEED += 0.1
         print(MAX_SPEED)
-    elif key == 84:
+    elif key == 45:
         MAX_SPEED -= 0.1
         print(MAX_SPEED)
 
