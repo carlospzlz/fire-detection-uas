@@ -75,11 +75,8 @@ def blend(img1, img2):
 
 
 def window_is_open(window_name):
-    try:
-        cv2.getWindowProperty(window_name, 0)
-    except cv2.error:
-        return False
-    return True
+    visible_prop = cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE)
+    return visible_prop > 0
 
 
 def show_step(window_name, image, delay):
