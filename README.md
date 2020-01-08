@@ -67,7 +67,7 @@ regions with highest risk of fire.
 ![](captures/surfing.gif)
 
 
-## Approach 1: Travellers
+## Approach 2: Travellers
 
 The first steps of this approach are the same as the former one. In our
 subdivided and smoothed space of cells we gather a bunch of equidistant cells
